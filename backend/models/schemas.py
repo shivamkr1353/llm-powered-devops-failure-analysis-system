@@ -6,7 +6,7 @@ from config import get_settings
 class AnalysisRequest(BaseModel):
     """Incoming request payload for log analysis."""
 
-    logs: str = Field(..., min_length=1, description="Raw CI/CD logs to analyze")
+    logs: str = Field(..., description="Raw CI/CD logs to analyze")
 
     @field_validator("logs")
     @classmethod

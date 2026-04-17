@@ -101,6 +101,12 @@ npm run dev
 
 Frontend will run at `http://localhost:5173`.
 
+The frontend also supports a matching local validation limit:
+
+```env
+VITE_MAX_LOG_CHARS=20000
+```
+
 ## Public Deployment Readiness
 
 This repo now includes a safer starter setup for public use:

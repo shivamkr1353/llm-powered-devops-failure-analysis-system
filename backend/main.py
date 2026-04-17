@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,6 +37,28 @@ if settings.cors_origins:
     )
 
 
+def format_validation_errors(exc: RequestValidationError) -> str:
+    """Convert FastAPI validation details into one readable message."""
+
+    messages: list[str] = []
+
+    for error in exc.errors():
+        message = str(error.get("msg", "Invalid request.")).strip()
+        if message.startswith("Value error, "):
+            message = message.removeprefix("Value error, ").strip()
+
+        if message and message not in messages:
+            messages.append(message)
+
+    if not messages:
+        return "Invalid request payload."
+
+    if len(messages) == 1:
+        return messages[0]
+
+    return " ".join(messages)
+
+
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Simple health endpoint for local testing."""
@@ -53,6 +76,7 @@ async def analyze_failure(request: AnalysisRequest, http_request: Request) -> An
         raise HTTPException(
             status_code=429,
             detail=f"Too many analysis requests. Try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)},
         )
 
     raw_logs = request.logs
@@ -87,6 +111,13 @@ async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse
     """Return consistent JSON errors to the frontend."""
 
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    """Return readable validation messages to the frontend."""
+
+    return JSONResponse(status_code=422, content={"detail": format_validation_errors(exc)})
 
 
 frontend_dist_dir = settings.frontend_dist_dir

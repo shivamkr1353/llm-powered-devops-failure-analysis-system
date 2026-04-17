@@ -5,6 +5,47 @@ import { sampleLogs } from "./data/sampleLogs"
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "")
 const ANALYZE_ENDPOINT = API_BASE_URL ? `${API_BASE_URL}/analyze` : "/analyze"
+const parsedMaxLogChars = Number(import.meta.env.VITE_MAX_LOG_CHARS)
+const MAX_LOG_CHARS = Number.isFinite(parsedMaxLogChars) && parsedMaxLogChars > 0 ? parsedMaxLogChars : 20000
+
+async function parseResponseBody(response) {
+  const rawBody = await response.text()
+  if (!rawBody) {
+    return null
+  }
+
+  try {
+    return JSON.parse(rawBody)
+  } catch {
+    return rawBody
+  }
+}
+
+function extractErrorMessage(payload, fallbackMessage) {
+  if (!payload) {
+    return fallbackMessage
+  }
+
+  if (typeof payload === "string") {
+    return payload
+  }
+
+  if (typeof payload.detail === "string") {
+    return payload.detail
+  }
+
+  if (Array.isArray(payload.detail)) {
+    const messages = payload.detail
+      .map((item) => (typeof item?.msg === "string" ? item.msg : ""))
+      .filter(Boolean)
+
+    if (messages.length > 0) {
+      return messages.join(" ")
+    }
+  }
+
+  return fallbackMessage
+}
 
 function App() {
   const [logs, setLogs] = useState(sampleLogs[0].logs)
@@ -13,8 +54,16 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
 
   const analyzeLogs = async () => {
-    if (!logs.trim()) {
+    const trimmedLogs = logs.trim()
+
+    if (!trimmedLogs) {
       setError("Paste CI/CD logs before running an analysis.")
+      setResult(null)
+      return
+    }
+
+    if (trimmedLogs.length > MAX_LOG_CHARS) {
+      setError(`Logs cannot exceed ${MAX_LOG_CHARS.toLocaleString()} characters.`)
       setResult(null)
       return
     }
@@ -28,19 +77,22 @@ function App() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ logs })
+        body: JSON.stringify({ logs: trimmedLogs })
       })
 
-      const data = await response.json()
+      const payload = await parseResponseBody(response)
 
       if (!response.ok) {
-        throw new Error(data.detail || "The backend could not analyze these logs.")
+        throw new Error(extractErrorMessage(payload, "The backend could not analyze these logs."))
       }
 
-      setResult(data)
+      setResult(payload)
     } catch (requestError) {
       setResult(null)
-      setError(requestError.message || "Something went wrong while calling the API.")
+      setError(
+        requestError.message ||
+          "Something went wrong while calling the API. Check that the backend is running and reachable."
+      )
     } finally {
       setIsLoading(false)
     }
@@ -72,6 +124,7 @@ function App() {
             onLogsChange={setLogs}
             onAnalyze={analyzeLogs}
             isLoading={isLoading}
+            maxLogChars={MAX_LOG_CHARS}
             examples={sampleLogs}
             onLoadExample={loadExample}
           />

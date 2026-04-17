@@ -1,4 +1,7 @@
-function LogInput({ logs, onLogsChange, onAnalyze, isLoading, examples, onLoadExample }) {
+function LogInput({ logs, onLogsChange, onAnalyze, isLoading, maxLogChars, examples, onLoadExample }) {
+  const trimmedLogLength = logs.trim().length
+  const isTooLong = trimmedLogLength > maxLogChars
+
   return (
     <section className="glass-panel p-6 lg:p-8">
       <div className="flex flex-col gap-6">
@@ -26,16 +29,21 @@ function LogInput({ logs, onLogsChange, onAnalyze, isLoading, examples, onLoadEx
         />
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <p className="max-w-xl text-sm text-slate-400">
-            The backend keeps high-signal lines like <span className="font-semibold text-rose-300">ERROR</span> and
-            <span className="font-semibold text-rose-300"> FAILED</span>, removes common CI noise, and then sends the
-            cleaned context to the LLM.
-          </p>
+          <div className="max-w-xl space-y-2">
+            <p className="text-sm text-slate-400">
+              The backend keeps high-signal lines like <span className="font-semibold text-rose-300">ERROR</span> and
+              <span className="font-semibold text-rose-300"> FAILED</span>, removes common CI noise, and then sends
+              the cleaned context to the LLM.
+            </p>
+            <p className={`text-xs ${isTooLong ? "text-rose-300" : "text-slate-500"}`}>
+              {trimmedLogLength.toLocaleString()} / {maxLogChars.toLocaleString()} characters
+            </p>
+          </div>
 
           <button
             type="button"
             onClick={onAnalyze}
-            disabled={isLoading}
+            disabled={isLoading || isTooLong}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-sky-900/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isLoading ? "Analyzing..." : "Analyze Logs"}
@@ -47,4 +55,3 @@ function LogInput({ logs, onLogsChange, onAnalyze, isLoading, examples, onLoadEx
 }
 
 export default LogInput
-
