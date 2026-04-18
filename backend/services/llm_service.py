@@ -1,43 +1,36 @@
-import json
-import re
-from typing import Any
+import asyncio
 
-from openai import AsyncOpenAI
+from google import genai
 
+from models.schemas import AnalysisResponse
 from config import get_settings
 
 SYSTEM_PROMPT = """You are a DevOps expert.
-Analyze CI/CD failure logs and return only valid JSON with this exact shape:
-{
-  "root_cause": "",
-  "summary": "",
-  "fix": ""
-}
+Analyze CI/CD failure logs and return a structured diagnosis.
 
 Rules:
 - Be concise and practical.
 - Focus on the most likely root cause.
-- Do not wrap the JSON in markdown.
-- Do not include extra keys.
+- Do not add extra fields.
 """
 
 
 class LLMServiceError(Exception):
-    """Raised when the OpenAI integration fails."""
+    """Raised when the Gemini integration fails."""
 
 
-def get_client() -> AsyncOpenAI:
-    """Create an async OpenAI client from environment variables."""
+def get_client() -> genai.Client:
+    """Create a Gemini client from environment variables."""
 
-    api_key = get_settings().openai_api_key
+    api_key = get_settings().gemini_api_key
     if not api_key:
-        raise LLMServiceError("OPENAI_API_KEY is not set. Add it to backend/.env before running the API.")
+        raise LLMServiceError("GEMINI_API_KEY is not set. Add it to backend/.env before running the API.")
 
-    return AsyncOpenAI(api_key=api_key)
+    return genai.Client(api_key=api_key)
 
 
 def build_user_prompt(cleaned_logs: str, original_logs: str) -> str:
-    """Build the user prompt sent to the LLM."""
+    """Build the user prompt sent to the model."""
 
     original_excerpt = "\n".join(original_logs.splitlines()[:80]).strip()
 
@@ -51,84 +44,40 @@ Original log excerpt:
 """
 
 
-def extract_text_from_response(response: Any) -> str:
-    """Read plain text from the Responses API object."""
-
-    if getattr(response, "output_text", None):
-        return response.output_text
-
-    chunks: list[str] = []
-
-    for item in getattr(response, "output", []) or []:
-        for content in getattr(item, "content", []) or []:
-            text_value = getattr(content, "text", None)
-            if text_value:
-                chunks.append(text_value)
-
-    return "\n".join(chunks).strip()
-
-
-def parse_json_payload(raw_output: str) -> dict[str, str]:
-    """Parse the JSON returned by the model."""
-
-    candidates = [raw_output.strip()]
-    json_match = re.search(r"\{[\s\S]*\}", raw_output)
-    if json_match:
-        candidates.insert(0, json_match.group(0))
-
-    for candidate in candidates:
-        try:
-            payload = json.loads(candidate)
-            break
-        except json.JSONDecodeError:
-            continue
-    else:
-        raise LLMServiceError("The model returned an invalid JSON response.")
-
-    result = {
-        "root_cause": str(payload.get("root_cause", "")).strip(),
-        "summary": str(payload.get("summary", "")).strip(),
-        "fix": str(payload.get("fix", "")).strip(),
-    }
-
-    if not all(result.values()):
-        raise LLMServiceError("The model response was missing one or more required fields.")
-
-    return result
-
-
-async def analyze_logs(cleaned_logs: str, original_logs: str) -> dict[str, str]:
-    """Send cleaned logs to OpenAI and return the parsed analysis."""
+def send_generate_content_request(model_name: str, cleaned_logs: str, original_logs: str) -> dict[str, str]:
+    """Call Gemini structured output and validate with Pydantic."""
 
     client = get_client()
-    model_name = get_settings().openai_model
 
     try:
-        response = await client.responses.create(
+        response = client.models.generate_content(
             model=model_name,
-            reasoning={"effort": "low"},
-            max_output_tokens=350,
-            input=[
-                {
-                    "role": "system",
-                    "content": [{"type": "input_text", "text": SYSTEM_PROMPT}],
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": build_user_prompt(cleaned_logs, original_logs),
-                        }
-                    ],
-                },
-            ],
+            contents=build_user_prompt(cleaned_logs, original_logs),
+            config={
+                "system_instruction": SYSTEM_PROMPT,
+                "temperature": 0.1,
+                "max_output_tokens": 350,
+                "response_mime_type": "application/json",
+                "response_json_schema": AnalysisResponse.model_json_schema(),
+            },
         )
     except Exception as exc:
-        raise LLMServiceError(f"OpenAI request failed: {exc}") from exc
+        raise LLMServiceError(f"Gemini request failed: {exc}") from exc
 
-    raw_output = extract_text_from_response(response)
+    raw_output = (getattr(response, "text", None) or "").strip()
     if not raw_output:
         raise LLMServiceError("The model returned an empty response.")
 
-    return parse_json_payload(raw_output)
+    try:
+        validated = AnalysisResponse.model_validate_json(raw_output)
+    except Exception as exc:
+        raise LLMServiceError(f"The model returned invalid structured output: {exc}") from exc
+
+    return validated.model_dump()
+
+
+async def analyze_logs(cleaned_logs: str, original_logs: str) -> dict[str, str]:
+    """Send cleaned logs to Gemini and return the parsed analysis."""
+
+    model_name = get_settings().gemini_model
+    return await asyncio.to_thread(send_generate_content_request, model_name, cleaned_logs, original_logs)

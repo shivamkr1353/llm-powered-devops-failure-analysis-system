@@ -108,7 +108,7 @@ function App() {
     <main className="min-h-screen px-4 py-10 text-slate-100">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8 text-center">
-          <span className="pill">FastAPI + React + OpenAI</span>
+          <span className="pill">FastAPI + React + Gemini</span>
           <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-extrabold tracking-tight text-white md:text-6xl">
             Turn noisy DevOps logs into clear failure analysis
           </h1>

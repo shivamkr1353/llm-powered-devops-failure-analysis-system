@@ -38,8 +38,8 @@ def _parse_bool_env(name: str, default: bool) -> bool:
 @dataclass(frozen=True)
 class Settings:
     environment: str
-    openai_api_key: str | None
-    openai_model: str
+    gemini_api_key: str | None
+    gemini_model: str
     cors_origins: list[str]
     max_log_chars: int
     rate_limit_requests: int
@@ -58,8 +58,13 @@ def get_settings() -> Settings:
 
     return Settings(
         environment=environment,
-        openai_api_key=os.getenv("OPENAI_API_KEY"),
-        openai_model=os.getenv("OPENAI_MODEL", "gpt-5.4-mini").strip() or "gpt-5.4-mini",
+        gemini_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"),
+        gemini_model=(
+            os.getenv("GEMINI_MODEL")
+            or os.getenv("OPENAI_MODEL")
+            or "gemini-3.1-flash-lite-preview"
+        ).strip()
+        or "gemini-3.1-flash-lite-preview",
         cors_origins=_parse_csv_env("CORS_ORIGINS", default_origins),
         max_log_chars=max(1000, _parse_int_env("MAX_LOG_CHARS", 20000)),
         rate_limit_requests=max(1, _parse_int_env("RATE_LIMIT_REQUESTS", 10)),

@@ -9,10 +9,10 @@ services:
     autoDeployTrigger: commit
     healthCheckPath: /health
     envVars:
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
-      - key: OPENAI_MODEL
-        value: gpt-5.4-mini
+      - key: GEMINI_MODEL
+        value: gemini-3.1-flash-lite-preview
       - key: ENVIRONMENT
         value: production
       - key: MAX_LOG_CHARS
