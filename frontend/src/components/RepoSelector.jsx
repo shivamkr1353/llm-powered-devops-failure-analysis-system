@@ -1,4 +1,17 @@
+import { useState } from "react"
+
 function RepoSelector({ owner, repo, onOwnerChange, onRepoChange, onFetch, isLoading }) {
+  const [token, setToken] = useState(() => localStorage.getItem("github_token") || "")
+
+  const handleTokenChange = (val) => {
+    setToken(val)
+    if (val.trim()) {
+      localStorage.setItem("github_token", val.trim())
+    } else {
+      localStorage.removeItem("github_token")
+    }
+  }
+
   return (
     <div className="panel p-5">
       <div className="mb-4 flex items-center gap-2">
@@ -48,6 +61,20 @@ function RepoSelector({ owner, repo, onOwnerChange, onRepoChange, onFetch, isLoa
             "Fetch Runs"
           )}
         </button>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-white/[0.05]">
+        <label className="mb-1.5 block font-mono text-[11px] text-gray-500 flex items-center justify-between">
+          <span>GitHub Personal Access Token (Optional)</span>
+          <span className="text-[10px] text-gray-600 font-normal">Stored locally in your browser</span>
+        </label>
+        <input
+          type="password"
+          value={token}
+          onChange={(e) => handleTokenChange(e.target.value)}
+          placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          className="input-field font-mono text-xs tracking-wider"
+        />
       </div>
     </div>
   )

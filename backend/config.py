@@ -57,7 +57,12 @@ def get_settings() -> Settings:
     frontend_dist_dir = backend_dir.parent / "frontend" / "dist"
     environment = os.getenv("ENVIRONMENT", "development").strip().lower() or "development"
 
-    default_origins = ["http://localhost:5173"] if environment == "development" else []
+    default_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ] if environment == "development" else []
 
     return Settings(
         environment=environment,

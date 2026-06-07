@@ -17,7 +17,6 @@ from services.github_service import (
     GitHubServiceError,
     download_run_logs,
     fetch_failed_runs,
-    fetch_runs,
     fetch_workflows,
     get_run_details,
 )
@@ -50,9 +49,10 @@ async def get_workflows(
     """List all workflows for a GitHub repository."""
 
     _check_rate_limit(request)
+    custom_token = request.headers.get("X-GitHub-Token")
 
     try:
-        workflows = await fetch_workflows(owner, repo)
+        workflows = await fetch_workflows(owner, repo, token=custom_token)
         return [GitHubWorkflow(**w) for w in workflows]
     except GitHubServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -67,19 +67,11 @@ async def get_runs(
     """List workflow runs for a GitHub repository."""
 
     _check_rate_limit(request)
+    custom_token = request.headers.get("X-GitHub-Token")
 
     try:
-        runs = await fetch_runs(owner, repo)
-        total = len(runs)
-        failed = sum(1 for r in runs if r["conclusion"] == "failure")
-        success_rate = round(((total - failed) / total) * 100, 1) if total > 0 else 0.0
-
-        return GitHubRunsResponse(
-            total_runs=total,
-            failed_runs=failed,
-            success_rate=success_rate,
-            runs=runs,
-        )
+        result = await fetch_failed_runs(owner, repo, token=custom_token)
+        return GitHubRunsResponse(**result)
     except GitHubServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -93,9 +85,10 @@ async def get_failed_runs(
     """List only failed workflow runs for a GitHub repository."""
 
     _check_rate_limit(request)
+    custom_token = request.headers.get("X-GitHub-Token")
 
     try:
-        result = await fetch_failed_runs(owner, repo)
+        result = await fetch_failed_runs(owner, repo, token=custom_token)
         return GitHubRunsResponse(**result)
     except GitHubServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -109,9 +102,10 @@ async def analyze_latest_failure(
     """Analyze the most recent failed workflow run."""
 
     _check_rate_limit(request)
+    custom_token = request.headers.get("X-GitHub-Token")
 
     try:
-        result = await fetch_failed_runs(body.owner, body.repo)
+        result = await fetch_failed_runs(body.owner, body.repo, token=custom_token)
         failed_runs = result["runs"]
 
         if not failed_runs:
@@ -120,7 +114,7 @@ async def analyze_latest_failure(
         latest_run = failed_runs[0]
         run_id = latest_run["id"]
 
-        logs = await download_run_logs(body.owner, body.repo, run_id)
+        logs = await download_run_logs(body.owner, body.repo, run_id, token=custom_token)
 
         analysis = await run_analysis_pipeline(
             logs,
@@ -144,10 +138,11 @@ async def analyze_specific_run(
     """Analyze a specific GitHub Actions workflow run."""
 
     _check_rate_limit(request)
+    custom_token = request.headers.get("X-GitHub-Token")
 
     try:
-        run_details = await get_run_details(body.owner, body.repo, run_id)
-        logs = await download_run_logs(body.owner, body.repo, run_id)
+        run_details = await get_run_details(body.owner, body.repo, run_id, token=custom_token)
+        logs = await download_run_logs(body.owner, body.repo, run_id, token=custom_token)
 
         analysis = await run_analysis_pipeline(
             logs,

@@ -5,7 +5,24 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "")
 
 function endpoint(path) {
-  return API_BASE_URL ? `${API_BASE_URL}${path}` : path
+  if (API_BASE_URL) {
+    try {
+      const url = new URL(API_BASE_URL)
+      const loc = window.location
+      // If we are on the same port and both are local (localhost/127.0.0.1), use relative paths to avoid CORS
+      if (
+        url.port === loc.port &&
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+        (loc.hostname === "localhost" || loc.hostname === "127.0.0.1")
+      ) {
+        return path
+      }
+    } catch {
+      // Fallback to absolute URL if parsing fails
+    }
+    return `${API_BASE_URL}${path}`
+  }
+  return path
 }
 
 async function parseResponseBody(response) {
@@ -33,9 +50,18 @@ function extractErrorMessage(payload, fallbackMessage) {
 
 async function request(path, options = {}) {
   const url = endpoint(path)
+  
+  // Read custom github token from localStorage if set
+  const token = localStorage.getItem("github_token")
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { "X-GitHub-Token": token.trim() } : {}),
+    ...(options.headers || {}),
+  }
+
   const response = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers,
   })
   const payload = await parseResponseBody(response)
   if (!response.ok) {

@@ -30,29 +30,30 @@ def _validate_repo_params(owner: str, repo: str) -> None:
         raise GitHubServiceError(f"Invalid repository name: '{repo}'")
 
 
-def _build_headers() -> dict[str, str]:
+def _build_headers(custom_token: str | None = None) -> dict[str, str]:
     """Build request headers, optionally including auth token."""
 
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "LLM-DevOps-Failure-Analyzer",
     }
 
-    token = get_settings().github_token
+    token = custom_token or get_settings().github_token
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
     return headers
 
 
-async def fetch_workflows(owner: str, repo: str) -> list[dict]:
+async def fetch_workflows(owner: str, repo: str, token: str | None = None) -> list[dict]:
     """Fetch all workflows for a GitHub repository."""
 
     _validate_repo_params(owner, repo)
 
     url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/actions/workflows"
     async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(url, headers=_build_headers())
+        response = await client.get(url, headers=_build_headers(token))
 
     if response.status_code == 404:
         raise GitHubServiceError(
@@ -83,7 +84,8 @@ async def fetch_runs(
     *,
     workflow_id: int | None = None,
     status: str | None = None,
-    per_page: int = 30,
+    per_page: int = 100,
+    token: str | None = None,
 ) -> list[dict]:
     """Fetch workflow runs, optionally filtered by workflow_id and/or status."""
 
@@ -99,7 +101,7 @@ async def fetch_runs(
         params["status"] = status
 
     async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(url, headers=_build_headers(), params=params)
+        response = await client.get(url, headers=_build_headers(token), params=params)
 
     if response.status_code == 404:
         raise GitHubServiceError(f"Repository '{owner}/{repo}' not found.")
@@ -126,14 +128,55 @@ async def fetch_runs(
     ]
 
 
-async def fetch_failed_runs(owner: str, repo: str, per_page: int = 30) -> dict:
-    """Fetch all completed runs and separate failed ones. Return stats and failed list."""
+async def _fetch_total_count(
+    owner: str,
+    repo: str,
+    *,
+    status: str = "completed",
+    token: str | None = None,
+) -> int:
+    """Fetch only the total_count from the GitHub runs API (single lightweight call)."""
 
-    all_runs = await fetch_runs(owner, repo, status="completed", per_page=per_page)
+    _validate_repo_params(owner, repo)
 
-    failed_runs = [r for r in all_runs if r["conclusion"] == "failure"]
-    total = len(all_runs)
-    failed = len(failed_runs)
+    url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/actions/runs"
+    params: dict[str, str | int] = {"per_page": 1, "status": status}
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(url, headers=_build_headers(token), params=params)
+
+    if response.status_code in (401, 403, 404):
+        return 0
+
+    response.raise_for_status()
+    return response.json().get("total_count", 0)
+
+
+async def fetch_failed_runs(
+    owner: str,
+    repo: str,
+    per_page: int = 100,
+    token: str | None = None,
+) -> dict:
+    """Fetch failed runs using GitHub's status=failure filter for stable, consistent results.
+
+    Uses the GitHub API's status=failure parameter directly instead of fetching
+    all completed runs and filtering client-side. This prevents fluctuating counts
+    on active repos like facebook/react where new runs constantly shift the window.
+    """
+
+    # Fetch failed runs directly using GitHub's status=failure filter.
+    failed_runs = await fetch_runs(
+        owner, repo, status="failure", per_page=per_page, token=token
+    )
+
+    # Fetch total completed and failed counts via lightweight API calls (per_page=1, only need total_count).
+    total_completed = await _fetch_total_count(owner, repo, status="completed", token=token)
+    total_failed = await _fetch_total_count(owner, repo, status="failure", token=token)
+
+    # Use the API's total_count for accurate stats (covers all runs, not just the page).
+    total = total_completed if total_completed > 0 else len(failed_runs)
+    failed = total_failed if total_failed > 0 else len(failed_runs)
     success_rate = round(((total - failed) / total) * 100, 1) if total > 0 else 0.0
 
     return {
@@ -144,7 +187,7 @@ async def fetch_failed_runs(owner: str, repo: str, per_page: int = 30) -> dict:
     }
 
 
-async def download_run_logs(owner: str, repo: str, run_id: int) -> str:
+async def download_run_logs(owner: str, repo: str, run_id: int, token: str | None = None) -> str:
     """Download and extract workflow run logs as plain text."""
 
     _validate_repo_params(owner, repo)
@@ -152,7 +195,7 @@ async def download_run_logs(owner: str, repo: str, run_id: int) -> str:
     url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}/logs"
 
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        response = await client.get(url, headers=_build_headers())
+        response = await client.get(url, headers=_build_headers(token))
 
     if response.status_code == 404:
         raise GitHubServiceError(f"Logs not found for run {run_id}. The run may have expired.")
@@ -182,7 +225,7 @@ async def download_run_logs(owner: str, repo: str, run_id: int) -> str:
         raise GitHubServiceError(f"GitHub returned an invalid log archive for run {run_id}.") from exc
 
 
-async def get_run_details(owner: str, repo: str, run_id: int) -> dict:
+async def get_run_details(owner: str, repo: str, run_id: int, token: str | None = None) -> dict:
     """Get details for a specific workflow run."""
 
     _validate_repo_params(owner, repo)
@@ -190,7 +233,7 @@ async def get_run_details(owner: str, repo: str, run_id: int) -> dict:
     url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}"
 
     async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(url, headers=_build_headers())
+        response = await client.get(url, headers=_build_headers(token))
 
     if response.status_code == 404:
         raise GitHubServiceError(f"Run {run_id} not found in '{owner}/{repo}'.")
