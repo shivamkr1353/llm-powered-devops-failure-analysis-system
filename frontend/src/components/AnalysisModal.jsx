@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import AnalysisPanel from "./AnalysisPanel"
 
 function AnalysisModal({ isOpen, onClose, result, isLoading, error }) {
@@ -26,7 +27,7 @@ function AnalysisModal({ isOpen, onClose, result, isLoading, error }) {
 
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       className="fixed inset-0 z-50 flex justify-end"
@@ -73,7 +74,8 @@ function AnalysisModal({ isOpen, onClose, result, isLoading, error }) {
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
