@@ -137,6 +137,32 @@ Each analyzed failure is stored as an embedding combining:
 - **Repository Pattern**: All SQL is abstracted behind async functions in `database/repository.py`
 - **Auto-initialization**: Tables are created on app startup via the FastAPI lifespan
 
+## Quick Start (Windows)
+
+If you are on Windows, you can launch both the frontend and the backend automatically using the root `run.bat` script:
+
+1. Setup the environment files first:
+   - Copy `backend/.env.example` to `backend/.env` and fill in your `GEMINI_API_KEY` and `GITHUB_TOKEN`.
+   - Copy `frontend/.env.example` to `frontend/.env` (configured for local backend by default).
+2. Install python dependencies:
+   ```bash
+   cd backend
+   python -m venv ..\.venv
+   ..\.venv\Scripts\python -m pip install -r requirements.txt
+   cd ..
+   ```
+3. Install frontend node modules:
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+4. Double-click or run `run.bat` from your terminal:
+   ```bash
+   .\run.bat
+   ```
+This will start both backend and frontend servers in separate windows, wait for them to initialize, and open the application in your browser.
+
 ## Local Backend Setup
 
 ```bash
