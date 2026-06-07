@@ -3,40 +3,52 @@ function LogInput({ logs, onLogsChange, onAnalyze, isLoading, maxLogChars, examp
   const isTooLong = trimmedLogLength > maxLogChars
 
   return (
-    <section className="glass-panel p-6 lg:p-8">
-      <div className="flex flex-col gap-6">
+    <section className="panel p-5 lg:p-6">
+      <div className="flex flex-col gap-5">
+
+        {/* Sample log buttons */}
         <div className="flex flex-col gap-3">
-          <span className="pill">Input Logs</span>
-          <div className="flex flex-wrap gap-3">
+          <span className="tag">INPUT LOGS</span>
+          <div className="flex flex-wrap gap-2">
             {examples.map((example) => (
               <button
                 key={example.id}
                 type="button"
                 onClick={() => onLoadExample(example.logs)}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-rose-400/40 hover:bg-rose-500/10"
+                className="btn-ghost text-[11px]"
               >
+                <span className="text-accent mr-1">›</span>
                 {example.title}
               </button>
             ))}
           </div>
         </div>
 
-        <textarea
-          value={logs}
-          onChange={(event) => onLogsChange(event.target.value)}
-          placeholder="Paste CI/CD logs here..."
-          className="min-h-[320px] w-full rounded-[1.5rem] border border-rose-500/20 bg-slate-950/80 px-4 py-4 font-mono text-sm leading-6 text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20"
-        />
+        {/* Terminal-style textarea */}
+        <div className="rounded-md border border-white/[0.08] overflow-hidden">
+          {/* Fake terminal title bar */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-[#0d0d14] border-b border-white/[0.06]">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
+            <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
+            <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
+            <span className="ml-2 font-mono text-[10px] text-gray-600">pipeline.log</span>
+          </div>
+          <textarea
+            value={logs}
+            onChange={(event) => onLogsChange(event.target.value)}
+            placeholder="$ paste ci/cd logs here..."
+            className="min-h-[280px] w-full bg-[#0a0a0f] px-4 py-3 font-mono text-sm leading-6 text-gray-300 outline-none resize-none placeholder:text-gray-700"
+          />
+        </div>
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="max-w-xl space-y-2">
-            <p className="text-sm text-slate-400">
-              The backend keeps high-signal lines like <span className="font-semibold text-rose-300">ERROR</span> and
-              <span className="font-semibold text-rose-300"> FAILED</span>, removes common CI noise, and then sends
-              the cleaned context to the LLM.
+        {/* Bottom controls */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="font-mono text-xs text-gray-500">
+              Logs are cleaned server-side — noise removed, error lines kept, then sent to the LLM.
             </p>
-            <p className={`text-xs ${isTooLong ? "text-rose-300" : "text-slate-500"}`}>
-              {trimmedLogLength.toLocaleString()} / {maxLogChars.toLocaleString()} characters
+            <p className={`font-mono text-[11px] ${isTooLong ? "text-red-400" : "text-gray-600"}`}>
+              {trimmedLogLength.toLocaleString()} / {maxLogChars.toLocaleString()} chars
             </p>
           </div>
 
@@ -44,11 +56,12 @@ function LogInput({ logs, onLogsChange, onAnalyze, isLoading, maxLogChars, examp
             type="button"
             onClick={onAnalyze}
             disabled={isLoading || isTooLong}
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-sky-900/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-primary shrink-0"
           >
-            {isLoading ? "Analyzing..." : "Analyze Logs"}
+            {isLoading ? "analyzing..." : "Analyze"}
           </button>
         </div>
+
       </div>
     </section>
   )

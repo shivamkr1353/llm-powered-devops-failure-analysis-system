@@ -81,3 +81,68 @@ async def analyze_logs(cleaned_logs: str, original_logs: str) -> dict[str, str]:
 
     model_name = get_settings().gemini_model
     return await asyncio.to_thread(send_generate_content_request, model_name, cleaned_logs, original_logs)
+
+
+def build_enriched_prompt(cleaned_logs: str, original_logs: str, similar_failures: list[dict]) -> str:
+    """Build a prompt that includes similar historical failures for RAG context."""
+
+    base_prompt = build_user_prompt(cleaned_logs, original_logs)
+
+    if not similar_failures:
+        return base_prompt
+
+    context_parts = ["\n\n--- Similar Historical Failures ---\n"]
+
+    for i, failure in enumerate(similar_failures, 1):
+        context_parts.append(
+            f"Similar Failure #{i} (similarity: {failure.get('similarity_score', 0):.0%}):\n"
+            f"  Root Cause: {failure.get('root_cause', 'N/A')}\n"
+            f"  Fix: {failure.get('fix', 'N/A')}\n"
+        )
+
+    context_parts.append(
+        "\nUse these similar failures as context to improve your analysis accuracy.\n"
+    )
+
+    return base_prompt + "\n".join(context_parts)
+
+
+async def analyze_logs_with_context(
+    cleaned_logs: str, original_logs: str, similar_failures: list[dict]
+) -> dict[str, str]:
+    """Send cleaned logs with RAG context to Gemini and return the parsed analysis."""
+
+    model_name = get_settings().gemini_model
+    client = get_client()
+
+    enriched_prompt = build_enriched_prompt(cleaned_logs, original_logs, similar_failures)
+
+    def _call() -> dict[str, str]:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=enriched_prompt,
+                config={
+                    "system_instruction": SYSTEM_PROMPT,
+                    "temperature": 0.1,
+                    "max_output_tokens": 350,
+                    "response_mime_type": "application/json",
+                    "response_json_schema": AnalysisResponse.model_json_schema(),
+                },
+            )
+        except Exception as exc:
+            raise LLMServiceError(f"Gemini request failed: {exc}") from exc
+
+        raw_output = (getattr(response, "text", None) or "").strip()
+        if not raw_output:
+            raise LLMServiceError("The model returned an empty response.")
+
+        try:
+            validated = AnalysisResponse.model_validate_json(raw_output)
+        except Exception as exc:
+            raise LLMServiceError(f"The model returned invalid structured output: {exc}") from exc
+
+        return validated.model_dump()
+
+    return await asyncio.to_thread(_call)
+

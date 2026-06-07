@@ -17,6 +17,11 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
+# Install build dependencies for ChromaDB / sentence-transformers.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app/backend
 
 COPY backend/requirements.txt ./
@@ -24,6 +29,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
+
+# Create data directory for SQLite and ChromaDB persistence.
+RUN mkdir -p /app/backend/data
 
 EXPOSE 8000
 

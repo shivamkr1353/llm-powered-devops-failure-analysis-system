@@ -1,22 +1,24 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Base ──────────────────────────────────────────────── */
+
 :root {
-  color: #e2e8f0;
-  background-color: #020817;
-  font-family: "Manrope", sans-serif;
+  color: #d1d5db;
+  background-color: #0a0a0f;
+  font-family: "Space Grotesk", system-ui, sans-serif;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(244, 63, 94, 0.16), transparent 24%),
-    linear-gradient(180deg, #020817 0%, #07111f 52%, #020617 100%);
+  background-color: #0a0a0f;
+  /* Subtle dot-grid pattern instead of colored radial blobs */
+  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 #root {
@@ -27,20 +29,96 @@ button:disabled {
   cursor: not-allowed;
 }
 
-textarea::selection {
-  background: rgba(56, 189, 248, 0.25);
+textarea::selection,
+input::selection {
+  background: rgba(255, 90, 0, 0.2);
 }
 
+/* ── Scrollbar ─────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 90, 0, 0.3);
+}
+
+/* ── Component Classes ─────────────────────────────────── */
+
 @layer components {
-  .glass-panel {
-    @apply rounded-[2rem] border border-white/10 bg-slate-900/70 shadow-glow backdrop-blur-xl;
+  /* Flat panel — replaces old glass-panel */
+  .panel {
+    @apply rounded-lg border border-white/[0.08] bg-[#111118];
   }
 
-  .pill {
-    @apply inline-flex w-fit items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-slate-300;
+  /* Monospace tag label */
+  .tag {
+    @apply inline-flex items-center gap-1.5 rounded border border-accent/20 bg-accent-muted px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-accent-text;
   }
 
-  .section-card {
-    @apply rounded-[1.5rem] border border-white/10 bg-white/5 p-5;
+  /* Section card with left accent border */
+  .accent-card {
+    @apply rounded-lg border border-white/[0.08] bg-[#111118] pl-4;
+    border-left: 3px solid;
   }
+
+  .accent-card--orange { border-left-color: #ff5a00; }
+  .accent-card--blue   { border-left-color: #3b82f6; }
+  .accent-card--green  { border-left-color: #22c55e; }
+  .accent-card--red    { border-left-color: #ef4444; }
+  .accent-card--violet { border-left-color: #8b5cf6; }
+
+  /* Primary action button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-accent px-5 py-2.5 font-mono text-sm font-bold text-white transition-all duration-150;
+    @apply hover:brightness-110 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Ghost / secondary button */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-md border border-white/[0.08] bg-transparent px-4 py-2 font-mono text-xs font-medium text-gray-400 transition-all duration-150;
+    @apply hover:border-white/[0.15] hover:text-gray-200 active:scale-[0.97];
+  }
+
+  /* Text input field */
+  .input-field {
+    @apply w-full rounded-md border border-white/[0.08] bg-[#0a0a0f] px-3 py-2.5 font-mono text-sm text-gray-200 outline-none transition;
+    @apply placeholder:text-gray-600 focus:border-accent/40 focus:ring-1 focus:ring-accent/20;
+  }
+
+  /* Scan-line loading animation */
+  .scan-line {
+    @apply relative h-0.5 w-full overflow-hidden rounded-full bg-white/[0.05];
+  }
+  .scan-line::after {
+    content: "";
+    @apply absolute inset-y-0 left-0 w-1/3 rounded-full bg-accent animate-scan;
+  }
+}
+
+/* ── Utilities ─────────────────────────────────────────── */
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

@@ -3,11 +3,42 @@ export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
-      boxShadow: {
-        glow: "0 25px 80px rgba(15, 23, 42, 0.4)"
-      }
-    }
+      colors: {
+        surface: {
+          DEFAULT: "#0a0a0f",
+          raised: "#111118",
+          overlay: "#18181f",
+        },
+        border: {
+          DEFAULT: "rgba(255,255,255,0.08)",
+          strong: "rgba(255,255,255,0.14)",
+        },
+        accent: {
+          DEFAULT: "#ff5a00",
+          muted: "rgba(255,90,0,0.15)",
+          text: "#ff8a40",
+        },
+        muted: "#6b7280",
+      },
+      fontFamily: {
+        heading: ['"Space Grotesk"', "system-ui", "sans-serif"],
+        mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+      },
+      keyframes: {
+        scan: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        scan: "scan 1.8s ease-in-out infinite",
+        "fade-in": "fade-in 0.3s ease-out forwards",
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 }
-

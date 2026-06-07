@@ -8,6 +8,10 @@ services:
     dockerContext: .
     autoDeployTrigger: commit
     healthCheckPath: /health
+    disk:
+      name: platform-data
+      mountPath: /app/backend/data
+      sizeGB: 1
     envVars:
       - key: GEMINI_API_KEY
         sync: false
@@ -23,3 +27,9 @@ services:
         value: "60"
       - key: SERVE_FRONTEND
         value: "true"
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        value: "data/failures.db"
+      - key: CHROMA_PERSIST_DIRECTORY
+        value: "data/chroma"

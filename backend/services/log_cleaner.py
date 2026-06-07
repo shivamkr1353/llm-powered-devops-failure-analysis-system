@@ -17,6 +17,21 @@ RELEVANT_PATTERNS = [
         r"cannot",
         r"non-zero code",
         r"returned exit code",
+        r"docker build",
+        r"test failure",
+        r"tests? failed",
+        r"dependency",
+        r"ENOENT",
+        r"npm ERR",
+        r"pip install.*failed",
+        r"OOMKilled",
+        r"CrashLoopBackOff",
+        r"ImagePullBackOff",
+        r"ErrImagePull",
+        r"segmentation fault",
+        r"core dumped",
+        r"killed",
+        r"out of memory",
     )
 ]
 

@@ -46,6 +46,9 @@ class Settings:
     rate_limit_window_seconds: int
     serve_frontend: bool
     frontend_dist_dir: Path
+    github_token: str | None
+    database_url: str
+    chroma_persist_directory: str
 
 
 @lru_cache
@@ -71,4 +74,7 @@ def get_settings() -> Settings:
         rate_limit_window_seconds=max(1, _parse_int_env("RATE_LIMIT_WINDOW_SECONDS", 60)),
         serve_frontend=_parse_bool_env("SERVE_FRONTEND", True),
         frontend_dist_dir=frontend_dist_dir,
+        github_token=os.getenv("GITHUB_TOKEN"),
+        database_url=os.getenv("DATABASE_URL", "data/failures.db"),
+        chroma_persist_directory=os.getenv("CHROMA_PERSIST_DIRECTORY", "data/chroma"),
     )

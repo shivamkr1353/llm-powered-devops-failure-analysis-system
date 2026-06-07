@@ -1,6 +1,8 @@
 import { useState } from "react"
+import SimilarFailures from "./SimilarFailures"
+import LoadingState from "./LoadingState"
 
-function ResultCard({ result, isLoading, error }) {
+function AnalysisPanel({ result, isLoading, error, loadingMessage = "Analyzing pipeline failure" }) {
   const [copiedLabel, setCopiedLabel] = useState("")
 
   const sections = result
@@ -36,6 +38,7 @@ function ResultCard({ result, isLoading, error }) {
     <section className="panel min-h-[380px] p-5 lg:p-6">
       <div className="flex h-full flex-col gap-5">
 
+        {/* Header */}
         <div className="flex items-center justify-between">
           <span className="tag">ANALYSIS RESULT</span>
           {result ? (
@@ -54,18 +57,15 @@ function ResultCard({ result, isLoading, error }) {
           ) : null}
         </div>
 
+        {/* Loading */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-white/[0.08] bg-surface-raised p-8 text-center">
-            <div className="w-48 scan-line" />
-            <div>
-              <h2 className="font-heading text-base font-semibold text-white">Analyzing your pipeline failure</h2>
-              <p className="mt-1.5 font-mono text-xs text-gray-500">
-                Cleaning logs and running LLM analysis.
-              </p>
-            </div>
-          </div>
+          <LoadingState
+            message={loadingMessage}
+            submessage="Cleaning logs, retrieving similar failures, running LLM analysis."
+          />
         ) : null}
 
+        {/* Error */}
         {!isLoading && error ? (
           <div className="accent-card accent-card--red p-4">
             <p className="font-mono text-xs font-bold text-red-400 mb-1">ERROR</p>
@@ -73,18 +73,20 @@ function ResultCard({ result, isLoading, error }) {
           </div>
         ) : null}
 
+        {/* Empty state */}
         {!isLoading && !error && !result ? (
           <div className="flex-1 flex flex-col justify-center rounded-lg border border-dashed border-white/[0.08] p-6">
             <p className="font-heading text-lg font-semibold text-white mb-2">
               Ready to inspect failures
             </p>
             <p className="font-mono text-xs text-gray-500 leading-relaxed max-w-md">
-              Paste logs on the left or load a sample to see the complete analysis flow.
-              You'll get a root cause, summary, and concrete fix suggestion.
+              Paste logs or select a failed GitHub Actions run. You'll get a root cause,
+              summary, and fix suggestion — plus similar historical failures from the RAG store.
             </p>
           </div>
         ) : null}
 
+        {/* Results */}
         {!isLoading && !error && result ? (
           <div className="grid gap-3">
             {sections.map((section) => (
@@ -106,6 +108,8 @@ function ResultCard({ result, isLoading, error }) {
                 </div>
               </article>
             ))}
+
+            <SimilarFailures failures={result.similar_failures} />
           </div>
         ) : null}
 
@@ -114,4 +118,4 @@ function ResultCard({ result, isLoading, error }) {
   )
 }
 
-export default ResultCard
+export default AnalysisPanel

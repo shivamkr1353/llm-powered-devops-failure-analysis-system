@@ -1,135 +1,93 @@
-import { useState } from "react"
-import LogInput from "./components/LogInput"
-import ResultCard from "./components/ResultCard"
-import { sampleLogs } from "./data/sampleLogs"
+import { useState, useRef, useEffect } from "react"
+import ManualAnalysis from "./components/ManualAnalysis"
+import GitHubAnalysis from "./components/GitHubAnalysis"
+import FailureHistory from "./components/FailureHistory"
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "")
-const ANALYZE_ENDPOINT = API_BASE_URL ? `${API_BASE_URL}/analyze` : "/analyze"
-const parsedMaxLogChars = Number(import.meta.env.VITE_MAX_LOG_CHARS)
-const MAX_LOG_CHARS = Number.isFinite(parsedMaxLogChars) && parsedMaxLogChars > 0 ? parsedMaxLogChars : 20000
-
-async function parseResponseBody(response) {
-  const rawBody = await response.text()
-  if (!rawBody) {
-    return null
-  }
-
-  try {
-    return JSON.parse(rawBody)
-  } catch {
-    return rawBody
-  }
-}
-
-function extractErrorMessage(payload, fallbackMessage) {
-  if (!payload) {
-    return fallbackMessage
-  }
-
-  if (typeof payload === "string") {
-    return payload
-  }
-
-  if (typeof payload.detail === "string") {
-    return payload.detail
-  }
-
-  if (Array.isArray(payload.detail)) {
-    const messages = payload.detail
-      .map((item) => (typeof item?.msg === "string" ? item.msg : ""))
-      .filter(Boolean)
-
-    if (messages.length > 0) {
-      return messages.join(" ")
-    }
-  }
-
-  return fallbackMessage
-}
+const TABS = [
+  { id: "manual", label: "Manual Analysis" },
+  { id: "github", label: "GitHub Actions" },
+  { id: "history", label: "Failure History" },
+]
 
 function App() {
-  const [logs, setLogs] = useState(sampleLogs[0].logs)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState("manual")
+  const [indicatorStyle, setIndicatorStyle] = useState({})
+  const tabRefs = useRef({})
 
-  const analyzeLogs = async () => {
-    const trimmedLogs = logs.trim()
-
-    if (!trimmedLogs) {
-      setError("Paste CI/CD logs before running an analysis.")
-      setResult(null)
-      return
-    }
-
-    if (trimmedLogs.length > MAX_LOG_CHARS) {
-      setError(`Logs cannot exceed ${MAX_LOG_CHARS.toLocaleString()} characters.`)
-      setResult(null)
-      return
-    }
-
-    setIsLoading(true)
-    setError("")
-
-    try {
-      const response = await fetch(ANALYZE_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ logs: trimmedLogs })
+  // Sliding bottom-border indicator
+  useEffect(() => {
+    const el = tabRefs.current[activeTab]
+    if (el) {
+      setIndicatorStyle({
+        left: el.offsetLeft,
+        width: el.offsetWidth,
       })
-
-      const payload = await parseResponseBody(response)
-
-      if (!response.ok) {
-        throw new Error(extractErrorMessage(payload, "The backend could not analyze these logs."))
-      }
-
-      setResult(payload)
-    } catch (requestError) {
-      setResult(null)
-      setError(
-        requestError.message ||
-          "Something went wrong while calling the API. Check that the backend is running and reachable."
-      )
-    } finally {
-      setIsLoading(false)
     }
-  }
-
-  const loadExample = (exampleLogs) => {
-    setLogs(exampleLogs)
-    setResult(null)
-    setError("")
-  }
+  }, [activeTab])
 
   return (
-    <main className="min-h-screen px-4 py-10 text-slate-100">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-8 text-center">
-          <span className="pill">FastAPI + React + Gemini</span>
-          <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-extrabold tracking-tight text-white md:text-6xl">
-            Turn noisy DevOps logs into clear failure analysis
+    <main className="min-h-screen px-4 py-8 text-gray-300 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+
+        {/* ── Header ──────────────────────────────── */}
+        <header className="mb-10">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]" />
+            <span className="font-mono text-[11px] text-gray-500 tracking-wide">SYSTEM ONLINE</span>
+          </div>
+          <h1 className="font-heading text-3xl font-bold text-white sm:text-4xl lg:text-5xl tracking-tight">
+            DevOps Failure{" "}
+            <span className="text-accent">Analysis</span>
           </h1>
-          <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-slate-300 md:text-lg">
-            Paste failing CI/CD output, run one analysis request, and get a readable diagnosis with a likely root
-            cause, concise summary, and next-step fix suggestion.
+          <p className="mt-3 max-w-xl font-mono text-sm text-gray-500 leading-relaxed">
+            Paste failing CI/CD logs, connect GitHub Actions, or browse past incidents.
+            AI diagnosis with RAG-powered similar failure retrieval.
           </p>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.9fr]">
-          <LogInput
-            logs={logs}
-            onLogsChange={setLogs}
-            onAnalyze={analyzeLogs}
-            isLoading={isLoading}
-            maxLogChars={MAX_LOG_CHARS}
-            examples={sampleLogs}
-            onLoadExample={loadExample}
-          />
-          <ResultCard result={result} isLoading={isLoading} error={error} />
+        {/* ── Tab Navigation ──────────────────────── */}
+        <nav className="mb-8 relative">
+          <div className="flex gap-0 border-b border-white/[0.08]">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                ref={(el) => { tabRefs.current[tab.id] = el }}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative px-5 py-3 font-mono text-sm font-medium transition-colors duration-200 ${
+                  activeTab === tab.id
+                    ? "text-accent-text"
+                    : "text-gray-500 hover:text-gray-300"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+            {/* Sliding indicator */}
+            <div
+              className="absolute bottom-0 h-[2px] bg-accent transition-all duration-300 ease-out"
+              style={indicatorStyle}
+            />
+          </div>
+        </nav>
+
+        {/* ── Tab Content ─────────────────────────── */}
+        <div className="min-h-[500px] animate-fade-in" key={activeTab}>
+          {activeTab === "manual" ? <ManualAnalysis /> : null}
+          {activeTab === "github" ? <GitHubAnalysis /> : null}
+          {activeTab === "history" ? <FailureHistory /> : null}
         </div>
+
+        {/* ── Footer ──────────────────────────────── */}
+        <footer className="mt-16 border-t border-white/[0.06] pt-5 flex justify-between items-center">
+          <p className="font-mono text-[11px] text-gray-600">
+            © {new Date().getFullYear()} DevOps Failure Analysis
+          </p>
+          <p className="font-mono text-[11px] text-gray-600">
+            built by <span className="text-accent-text font-semibold">Shivam Kumar</span>
+          </p>
+        </footer>
+
       </div>
     </main>
   )
